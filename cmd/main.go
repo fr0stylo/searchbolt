@@ -129,12 +129,10 @@ func main() {
 	// go putData(m)
 
 	// searchbolt.LoadData(db, "stock", func(item map[string]any) [8]byte { return searchbolt.StrKey(item["Clip ID"].(string)) }, m)
-	// log.Print(searchbolt.CreateFTSIndex(db, "stock",
-	// 	searchbolt.CreateFTSOpts("Video Title", ptr(true)),
-	// 	searchbolt.CreateFTSOpts("Video Description", ptr(true)),
-	// 	searchbolt.CreateFTSOpts("Keywords", ptr(true)),
-	// 	searchbolt.CreateFTSOpts("Action KWs", ptr(true)),
-	// 	searchbolt.CreateFTSOpts("Transcript", ptr(true)),
+	// log.Print(searchbolt.CreateFTSIndex(db, "creators",
+	// 	searchbolt.CreateFTSOpts("firstName", ptr(true)),
+	// 	searchbolt.CreateFTSOpts("lastName", ptr(true)),
+	// 	searchbolt.CreateFTSOpts("email", ptr(true)),
 	// ))
 
 	// searchbolt.CreateFacetsIndexFn(db, "stock",

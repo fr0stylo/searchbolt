@@ -75,7 +75,7 @@ func CreateFacetOpts(name string, separator *string, unify *bool) CreateFacet {
 	}
 }
 
-func CreateFacetsIndexFn(db *bolt.DB, bucket string, facets ...CreateFacet) error {
+func RecreateFacetIndex(db *bolt.DB, bucket string, facets ...CreateFacet) error {
 	return db.Batch(func(tx *bolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists([]byte(bucket))
 		if err != nil {

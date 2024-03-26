@@ -75,6 +75,7 @@ func ListenAndServe(db *bolt.DB, addr string) error {
 	c.Put("/", handlers.Insert(db))
 	c.Put("/batch", handlers.InsertBatch(db))
 	c.Post("/mappings", handlers.CreateMappings(db))
+	c.Get("/mappings", handlers.GetMappings(db))
 
 	return http.ListenAndServe(addr, c)
 }

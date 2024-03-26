@@ -21,20 +21,41 @@ func CreateMappings(db *bolt.DB, bucket string, filters map[string]string, searc
 		if err != nil {
 			return err
 		}
-		mb.Put([]byte("facets"), jb)
+
+		if err := mb.Put([]byte("facets"), jb); err != nil {
+			return err
+		}
+
+		jsb, err := json.Marshal(search)
 		if err != nil {
 			return err
 		}
 
-		jsb, err := json.Marshal(filters)
-		if err != nil {
-			return err
-		}
-		mb.Put([]byte("fts"), jsb)
-		if err != nil {
-			return err
-		}
-
-		return nil
+		return mb.Put([]byte("fts"), jsb)
 	})
+}
+
+func GetMappings(db *bolt.DB, bucket string) ([]string, map[string]string, error) {
+	fts := []string{}
+	facets := map[string]string{}
+	err := db.View(func(tx *bolt.Tx) error {
+		c := tx.Bucket([]byte(bucket))
+		if c == nil {
+			return nil
+		}
+		b := c.Bucket([]byte("mappings"))
+		if b == nil {
+			return nil
+		}
+
+		data := b.Get([]byte("fts"))
+		if err := json.Unmarshal(data, &fts); err != nil {
+			return err
+		}
+
+		data = b.Get([]byte("facets"))
+		return json.Unmarshal(data, &facets)
+	})
+
+	return fts, facets, err
 }

@@ -11,14 +11,14 @@ import (
 )
 
 type CreateMappingsRequest struct {
-	Bucket  string
-	Filters map[string]string
-	Search  []string
+	Bucket  string            `json:"bucket"`
+	Filters map[string]string `json:"filters"`
+	Search  []string          `json:"search"`
 }
 
 func (i *CreateMappingsRequest) Validate() error {
 	return validation.ValidateStruct(i,
-		validation.Field(&i.Filters, validation.Each(validation.Match(regexp.MustCompile("number|string|boolean")))),
+		validation.Field(&i.Filters, validation.Each(validation.Match(regexp.MustCompile("^(number|string|boolean|date)$")))),
 		validation.Field(&i.Search),
 		validation.Field(&i.Bucket, validation.Required))
 }
@@ -44,5 +44,19 @@ func CreateMappings(db *bolt.DB) http.HandlerFunc {
 		}
 
 		w.WriteHeader(http.StatusCreated)
+	}
+}
+
+func GetMappings(db *bolt.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		defer req.Body.Close()
+
+		fts, facets, err := searchbolt.GetMappings(db, "creators")
+		if err != nil {
+			r.JSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+			return
+		}
+
+		r.JSON(w, http.StatusOK, CreateMappingsRequest{Bucket: "creators", Filters: facets, Search: fts})
 	}
 }
