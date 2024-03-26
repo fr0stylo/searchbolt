@@ -2,4 +2,4 @@
 res.json
 *.bbdb
 
-./utils*
+utils/
