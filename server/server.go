@@ -51,7 +51,7 @@ func (r *SearchRequest) GenerateFilters() []searchbolt.FacetFilter {
 
 // func init() {
 // 	rq := SearchRequest{
-// 		Query: "test asdas asd a",
+// 		QueryReader: "test asdas asd a",
 // 		FilterList: []string{
 // 			"Emotion=joy|joyfull",
 // 			"Emotional Intensity=high",
@@ -65,9 +65,9 @@ func (r *SearchRequest) GenerateFilters() []searchbolt.FacetFilter {
 func ListenAndServe(db *bolt.DB, addr string) error {
 	c := chi.NewRouter()
 	c.Use(
+		middleware.Logger,
 		middleware.Recoverer,
 		middleware.RequestID,
-		middleware.Logger,
 		middleware.Heartbeat("/health"),
 	)
 
@@ -76,6 +76,7 @@ func ListenAndServe(db *bolt.DB, addr string) error {
 	c.Put("/batch", handlers.InsertBatch(db))
 	c.Post("/mappings", handlers.CreateMappings(db))
 	c.Get("/mappings", handlers.GetMappings(db))
+	c.Post("/reindex", handlers.Reindex(db))
 
 	return http.ListenAndServe(addr, c)
 }

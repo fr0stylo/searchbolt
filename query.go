@@ -3,12 +3,13 @@ package searchbolt
 import (
 	"bytes"
 	"io"
+	"sort"
 	"sync"
 
 	bolt "go.etcd.io/bbolt"
 )
 
-func Query(db *bolt.DB, bucket string, query string, facet ...FacetFilter) (io.Reader, error) {
+func QueryReader(db *bolt.DB, bucket string, query string, facet ...FacetFilter) (io.Reader, error) {
 	buf := make([]byte, 0, 1024*1024)
 	rawresult := bytes.NewBuffer(buf)
 	err := db.View(func(tx *bolt.Tx) error {
@@ -34,11 +35,20 @@ func Query(db *bolt.DB, bucket string, query string, facet ...FacetFilter) (io.R
 		wgg.Wait()
 		if len(query) > 0 {
 			mapUnion(loc, keys...)
-		} else if len(keys) > 1 {
+		} else if len(keys) > 0 {
 			mapUnion(keys[0], keys[1:]...)
+			loc = keys[0]
 		}
 
-		res, _ := retrieveByKeys(d, loc)
+		var sortedKeys [][8]byte
+		for k := range loc {
+			sortedKeys = append(sortedKeys, k)
+		}
+		sort.Slice(sortedKeys, func(i, j int) bool {
+			return bytes.Compare(sortedKeys[i][:], sortedKeys[j][:]) < 0
+		})
+
+		res, _ := retrieveArray(d, sortedKeys)
 		for r := range res {
 			rawresult.Write(r)
 			if len(res) != 0 {

@@ -57,7 +57,11 @@ type CreateFacet = func(v map[string]any) (string, []string)
 
 func CreateFacetOpts(name string, separator *string, unify *bool) CreateFacet {
 	return func(v map[string]any) (string, []string) {
-		val := v[name].(string)
+		var res []string
+		val, ok := v[name].(string)
+		if !ok {
+			return strings.ToLower(name), res
+		}
 		if unify != nil && *unify {
 			val = strings.ToLower(val)
 		}
@@ -66,7 +70,6 @@ func CreateFacetOpts(name string, separator *string, unify *bool) CreateFacet {
 		}
 
 		vals := strings.Split(val, *separator)
-		res := []string{}
 		for _, split := range vals {
 			res = append(res, strings.Trim(split, " "))
 		}
@@ -122,4 +125,8 @@ func RecreateFacetIndex(db *bolt.DB, bucket string, facets ...CreateFacet) error
 
 		return nil
 	})
+}
+
+func AppendTempFacetsIndex() {
+
 }

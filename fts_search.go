@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"log"
 	"strings"
 	"sync"
 
@@ -90,6 +91,18 @@ func retrieveByKeys(bucket *bolt.Bucket, keys map[[8]byte]byte) (chan []byte, er
 	}
 
 	wg.Wait()
+	close(resChan)
+
+	return resChan, nil
+}
+
+func retrieveArray(bucket *bolt.Bucket, keys [][8]byte) (chan []byte, error) {
+	resChan := make(chan []byte, len(keys))
+	for _, key := range keys {
+		log.Print(key)
+		resChan <- bucket.Get(key[:])
+	}
+
 	close(resChan)
 
 	return resChan, nil

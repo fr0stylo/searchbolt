@@ -9,7 +9,6 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
-
 type SearchRequest struct {
 	Query      string   `schema:"q"`
 	FilterList []string `schema:"filter"`
@@ -39,7 +38,7 @@ func Search(db *bolt.DB) http.HandlerFunc {
 			return
 		}
 
-		rw, err := searchbolt.Query(db, "creators", payload.Query, payload.GenerateFilters()...)
+		rw, err := searchbolt.QueryReader(db, "creators", payload.Query, payload.GenerateFilters()...)
 		if err != nil {
 			r.JSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 			return

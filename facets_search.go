@@ -64,7 +64,9 @@ func Filter[T any](db *bolt.DB, bucket, facet, value string) ([]T, error) {
 }
 
 func readOne(ch chan []byte, wg *sync.WaitGroup, key []byte, tx *bolt.Bucket) {
-	defer wg.Done()
+	if wg != nil {
+		defer wg.Done()
+	}
 	ch <- tx.Get(key)
 }
 
