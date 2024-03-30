@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -62,7 +63,7 @@ func (r *SearchRequest) GenerateFilters() []searchbolt.FacetFilter {
 // 	log.Print(form.Encode())
 // }
 
-func ListenAndServe(db *bolt.DB, addr string) error {
+func ListenAndServe(db *searchbolt.SearchBolt, addr string) error {
 	c := chi.NewRouter()
 	c.Use(
 		middleware.Logger,
@@ -78,5 +79,6 @@ func ListenAndServe(db *bolt.DB, addr string) error {
 	c.Get("/mappings", handlers.GetMappings(db))
 	c.Post("/reindex", handlers.Reindex(db))
 
+	log.Print("Listening")
 	return http.ListenAndServe(addr, c)
 }

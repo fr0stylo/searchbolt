@@ -3,6 +3,7 @@ package searchbolt
 import (
 	"encoding/hex"
 	"encoding/json"
+	"reflect"
 
 	bolt "go.etcd.io/bbolt"
 )
@@ -33,36 +34,61 @@ func Insert(db *bolt.DB, bucket string, id any, data any) (resId string, err err
 			id, _ := dataBucket.NextSequence()
 			k := UintKey(id)
 			key = k[:]
-			idsBucket.Put(idBytes, key)
+			err := idsBucket.Put(idBytes, key)
+			if err != nil {
+				return err
+			}
 		}
 		j, err := json.Marshal(data)
 		if err != nil {
 			return err
 		}
-		dataBucket.Put(key[:], []byte(j))
-		return nil
+		return dataBucket.Put(key[:], j)
 	})
 
 	return hex.EncodeToString(key[:]), err
 }
 
-func insert(idsBucket *bolt.Bucket, dataBucket *bolt.Bucket, oridinalid []byte, data []byte) (resId []byte, err error) {
+func insert(idsBucket *bolt.Bucket, dataBucket *bolt.Bucket, originalid []byte, data []byte) (resId []byte, err error) {
 	var key []byte
 
-	key = idsBucket.Get(oridinalid)
+	key = idsBucket.Get(originalid)
 	if key == nil {
 		id, _ := dataBucket.NextSequence()
 		k := UintKey(id)
 		key = k[:]
-		idsBucket.Put(oridinalid, key)
+		err := idsBucket.Put(originalid, key)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	dataBucket.Put(key[:], data)
+	err = dataBucket.Put(key[:], data)
+	if err != nil {
+		return nil, err
+	}
 
 	return key[:], err
 }
 
+func removeNulls(m map[string]interface{}) {
+	val := reflect.ValueOf(m)
+	for _, e := range val.MapKeys() {
+		v := val.MapIndex(e)
+		if v.IsNil() {
+			delete(m, e.String())
+			continue
+		}
+		switch t := v.Interface().(type) {
+		// If key is a JSON object (Go Map), use recursion to go deeper
+		case map[string]interface{}:
+			removeNulls(t)
+		}
+	}
+}
+
 func prepareData(id any, data any) ([]byte, []byte, error) {
+	removeNulls(data.(map[string]interface{}))
 	idBytes, err := json.Marshal(id)
 	if err != nil {
 		return nil, nil, err
@@ -110,23 +136,14 @@ type BatchEntry struct {
 	Data map[string]any `json:"data"`
 }
 
-func UpsertBatch(db *bolt.DB, bucketName string, items []BatchEntry) (resIds []string, err error) {
+func UpsertBatch(db *bolt.DB, indexer chan *IndexRequest, bucketName string, items []BatchEntry) (resIds []string, err error) {
+	insertedIds := [][]byte{}
 	err = db.Batch(func(tx *bolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists([]byte(bucketName))
 		if err != nil {
 			return err
 		}
-		fts, _, err := GetMappings(db, bucketName)
-		if err != nil {
-			return err
-		}
-
-		ftsIdx := []CreateFTS{}
-		for _, v := range fts {
-			ftsIdx = append(ftsIdx, CreateFTSOpts(v, Ptr(true)))
-		}
-
-		bucket.CreateBucketIfNotExists([]byte("facets"))
+		_, _ = bucket.CreateBucketIfNotExists([]byte("facets"))
 		dataBucket, err := bucket.CreateBucketIfNotExists([]byte("data"))
 		if err != nil {
 			return err
@@ -136,7 +153,7 @@ func UpsertBatch(db *bolt.DB, bucketName string, items []BatchEntry) (resIds []s
 			return err
 		}
 
-		idx := map[string][]string{}
+		//idx := map[string][]string{}
 		for _, v := range items {
 			idBytes, dataBytes, err := prepareData(v.Id, v.Data)
 			if err != nil {
@@ -146,15 +163,20 @@ func UpsertBatch(db *bolt.DB, bucketName string, items []BatchEntry) (resIds []s
 			if err != nil {
 				return err
 			}
-			if err := AddTempFTSIndex(&idx, id, dataBytes, ftsIdx...); err != nil {
-				return err
-			}
+			//if err := AddTempFTSIndex(&idx, id, dataBytes, ftsIdx...); err != nil {
+			//	return err
+			//}
 
-			resIds = append(resIds, hex.EncodeToString(id))
+			insertedIds = append(insertedIds, id)
 		}
-
-		return PersistTempFTSIndex(bucket, &idx)
+		return nil
+		//return PersistTempFTSIndex(bucket, &idx)
 	})
+
+	for _, id := range insertedIds {
+		indexer <- &IndexRequest{Bucket: bucketName, ObjectId: id}
+		resIds = append(resIds, hex.EncodeToString(id))
+	}
 
 	return
 }

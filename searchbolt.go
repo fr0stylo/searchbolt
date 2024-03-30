@@ -2,8 +2,9 @@ package searchbolt
 
 import (
 	"encoding/json"
-
+	"fmt"
 	bolt "go.etcd.io/bbolt"
+	"io"
 )
 
 type Quote struct {
@@ -56,4 +57,86 @@ func GetById[T any](db *bolt.DB, bucket string, id [8]byte, obj *T) error {
 	}
 
 	return nil
+}
+
+type Queryer interface {
+	QueryReader(bucket string, query string, facet ...FacetFilter) (io.Reader, error)
+}
+
+type Writter interface {
+	UpsertBatch(bucketName string, items []BatchEntry) (resIds []string, err error)
+}
+
+type Indexer interface {
+	RecreateFacetIndex(bucket string, facets ...CreateFacet) error
+	RecreateFTSIndex(bucket string, facets ...CreateFTS) error
+	IndexItem(bucket string, objId []byte) error
+	GetMappings(bucket string) ([]string, map[string]string, error)
+	CreateMappings(bucket string, filters map[string]string, search []string) error
+}
+
+type SearchBolt struct {
+	db         *bolt.DB
+	indexerC   chan *IndexRequest
+	ftsIndex   *bolt.DB
+	facetIndex *bolt.DB
+}
+
+func (b *SearchBolt) Close() error {
+	close(b.indexerC)
+	return b.db.Close()
+}
+
+func (b *SearchBolt) QueryReader(bucket string, query string, facet ...FacetFilter) (io.Reader, error) {
+	return QueryReader(b.db, bucket, query, facet...)
+}
+
+func (b *SearchBolt) UpsertBatch(bucketName string, items []BatchEntry) (resIds []string, err error) {
+	return UpsertBatch(b.db, b.indexerC, bucketName, items)
+}
+
+func (b *SearchBolt) RecreateFacetIndex(bucket string, facets ...CreateFacet) error {
+	return RecreateFacetIndex(b.db, bucket, facets...)
+}
+
+func (b *SearchBolt) RecreateFTSIndex(bucket string, facets ...CreateFTS) error {
+	return RecreateFTSIndex(b.db, bucket, facets...)
+}
+
+func (b *SearchBolt) IndexItem(bucket string, objId []byte) error {
+	b.indexerC <- &IndexRequest{bucket, objId}
+	return nil
+}
+
+func (b *SearchBolt) GetMappings(bucket string) ([]string, map[string]string, error) {
+	return GetMappings(b.db, bucket)
+}
+
+func (b *SearchBolt) CreateMappings(bucket string, filters map[string]string, search []string) error {
+	return CreateMappings(b.db, bucket, filters, search)
+}
+
+func NewSearchBolt(path string) (*SearchBolt, error) {
+
+	db, err := bolt.Open(fmt.Sprintf("%s", path), 0600, nil) // &bolt.Options{ReadOnly: true, NoSync: true, NoGrowSync: true, NoFreelistSync: true})
+	if err != nil {
+		return nil, err
+	}
+	//fts, err := bolt.Open(fmt.Sprintf("%s/fts", path), 0600, nil) // &bolt.Options{ReadOnly: true, NoSync: true, NoGrowSync: true, NoFreelistSync: true})
+	//if err != nil {
+	//	return nil, err
+	//}
+	//facet, err := bolt.Open(fmt.Sprintf("%s/", path), 0600, nil) // &bolt.Options{ReadOnly: true, NoSync: true, NoGrowSync: true, NoFreelistSync: true})
+	//if err != nil {
+	//	return nil, err
+	//}
+
+	c := StartIndexer(db)
+
+	return &SearchBolt{
+		db:         db,
+		ftsIndex:   nil,
+		facetIndex: nil,
+		indexerC:   c,
+	}, nil
 }

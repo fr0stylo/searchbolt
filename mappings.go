@@ -2,12 +2,15 @@ package searchbolt
 
 import (
 	"encoding/json"
+	"log"
 
 	bolt "go.etcd.io/bbolt"
 )
 
 func CreateMappings(db *bolt.DB, bucket string, filters map[string]string, search []string) error {
+	log.Print("cm1")
 	return db.Batch(func(tx *bolt.Tx) error {
+		log.Print("cm2")
 		b, err := tx.CreateBucketIfNotExists([]byte(bucket))
 		if err != nil {
 			return err
@@ -17,6 +20,7 @@ func CreateMappings(db *bolt.DB, bucket string, filters map[string]string, searc
 			return err
 		}
 
+		log.Print("cm3")
 		jb, err := json.Marshal(filters)
 		if err != nil {
 			return err
@@ -25,11 +29,13 @@ func CreateMappings(db *bolt.DB, bucket string, filters map[string]string, searc
 		if err := mb.Put([]byte("facets"), jb); err != nil {
 			return err
 		}
+		log.Print("cm4")
 
 		jsb, err := json.Marshal(search)
 		if err != nil {
 			return err
 		}
+		log.Print("cm5")
 
 		return mb.Put([]byte("fts"), jsb)
 	})

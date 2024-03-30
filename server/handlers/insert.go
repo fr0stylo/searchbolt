@@ -6,7 +6,6 @@ import (
 
 	"github.com/fr0stylo/searchbolt"
 	validation "github.com/go-ozzo/ozzo-validation"
-	bolt "go.etcd.io/bbolt"
 )
 
 type InsertRequest struct {
@@ -27,7 +26,7 @@ type InsertResponse struct {
 	Id string `json:"id"`
 }
 
-func Insert(db *bolt.DB) http.HandlerFunc {
+func Insert(writter searchbolt.Writter) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		defer req.Body.Close()
 
@@ -42,19 +41,19 @@ func Insert(db *bolt.DB) http.HandlerFunc {
 			return
 		}
 
-		id, err := searchbolt.UpsertOne(db, body.Bucket, body.Id, body.Data)
+		id, err := writter.UpsertBatch(body.Bucket, []searchbolt.BatchEntry{{Id: body.Id, Data: body.Data}})
 		if err != nil {
 			r.JSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
 			return
 		}
 
-		r.JSON(w, http.StatusCreated, InsertResponse{Id: id})
+		r.JSON(w, http.StatusCreated, InsertResponse{Id: id[0]})
 	}
 }
 
 type InsertBatchRequest struct {
 	Data   []searchbolt.BatchEntry `json:"batch"`
-	Bucket string `json:"bucket"`
+	Bucket string                  `json:"bucket"`
 }
 
 type InsertBatchResponse struct {
@@ -67,7 +66,7 @@ func (i *InsertBatchRequest) Validate() error {
 		validation.Field(&i.Bucket, validation.Required))
 }
 
-func InsertBatch(db *bolt.DB) http.HandlerFunc {
+func InsertBatch(writter searchbolt.Writter) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		defer req.Body.Close()
 
@@ -82,7 +81,7 @@ func InsertBatch(db *bolt.DB) http.HandlerFunc {
 			return
 		}
 
-		id, err := searchbolt.UpsertBatch(db, body.Bucket, body.Data)
+		id, err := writter.UpsertBatch(body.Bucket, body.Data)
 		if err != nil {
 			r.JSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
 			return

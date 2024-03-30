@@ -2,12 +2,12 @@ package handlers
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"regexp"
 
 	"github.com/fr0stylo/searchbolt"
 	validation "github.com/go-ozzo/ozzo-validation"
-	bolt "go.etcd.io/bbolt"
 )
 
 type CreateMappingsRequest struct {
@@ -23,7 +23,7 @@ func (i *CreateMappingsRequest) Validate() error {
 		validation.Field(&i.Bucket, validation.Required))
 }
 
-func CreateMappings(db *bolt.DB) http.HandlerFunc {
+func CreateMappings(db searchbolt.Indexer) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		defer req.Body.Close()
 
@@ -38,20 +38,22 @@ func CreateMappings(db *bolt.DB) http.HandlerFunc {
 			return
 		}
 
-		if err := searchbolt.CreateMappings(db, body.Bucket, body.Filters, body.Search); err != nil {
+		log.Print("1")
+		if err := db.CreateMappings(body.Bucket, body.Filters, body.Search); err != nil {
 			r.JSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
 			return
 		}
+		log.Print("2")
 
 		w.WriteHeader(http.StatusCreated)
 	}
 }
 
-func GetMappings(db *bolt.DB) http.HandlerFunc {
+func GetMappings(db searchbolt.Indexer) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		defer req.Body.Close()
 
-		fts, facets, err := searchbolt.GetMappings(db, "creators")
+		fts, facets, err := db.GetMappings("creators")
 		if err != nil {
 			r.JSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
 			return

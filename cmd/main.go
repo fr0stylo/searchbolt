@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/csv"
 	"encoding/json"
+	"github.com/fr0stylo/searchbolt"
 	"io"
 	"log"
 	"net/http"
@@ -97,7 +98,7 @@ func putData(data []map[string]any) {
 		})
 		if i == len(data) || i%100 == 0 {
 			b, err := json.Marshal(map[string]any{
-				"batch":   batch,
+				"batch":  batch,
 				"bucket": "stock",
 			})
 
@@ -113,7 +114,7 @@ func putData(data []map[string]any) {
 func main() {
 	path := "./search.bbdb"
 
-	db, err := bolt.Open(path, 0600, nil) // &bolt.Options{ReadOnly: true, NoSync: true, NoGrowSync: true, NoFreelistSync: true})
+	db, err := searchbolt.NewSearchBolt(path)
 	if err != nil {
 		log.Fatal(err)
 	}

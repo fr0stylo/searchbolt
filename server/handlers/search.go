@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/fr0stylo/searchbolt"
-	bolt "go.etcd.io/bbolt"
 )
 
 type SearchRequest struct {
@@ -28,9 +27,13 @@ func (r *SearchRequest) GenerateFilters() []searchbolt.FacetFilter {
 	return fns
 }
 
-func Search(db *bolt.DB) http.HandlerFunc {
+func Search(queryer searchbolt.Queryer) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		req.ParseForm()
+		err := req.ParseForm()
+		if err != nil {
+			r.JSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
 		defer req.Body.Close()
 		var payload SearchRequest
 		if err := decoder.Decode(&payload, req.Form); err != nil {
@@ -38,7 +41,7 @@ func Search(db *bolt.DB) http.HandlerFunc {
 			return
 		}
 
-		rw, err := searchbolt.QueryReader(db, "creators", payload.Query, payload.GenerateFilters()...)
+		rw, err := queryer.QueryReader("creators", payload.Query, payload.GenerateFilters()...)
 		if err != nil {
 			r.JSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 			return
@@ -46,6 +49,6 @@ func Search(db *bolt.DB) http.HandlerFunc {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		io.Copy(w, rw)
+		_, _ = io.Copy(w, rw)
 	}
 }
