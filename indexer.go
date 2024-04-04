@@ -18,7 +18,7 @@ func StartIndexer(db *bolt.DB) chan *IndexRequest {
 	requests := make(chan *IndexRequest)
 
 	go func() {
-		t := time.NewTicker(1 * time.Second)
+		var t *time.Timer
 		ftsIdx := map[string]*map[string][]string{}
 		for {
 			select {
@@ -33,25 +33,33 @@ func StartIndexer(db *bolt.DB) chan *IndexRequest {
 				if err != nil {
 					log.Print(err)
 				}
-			case <-t.C:
-				log.Print("Persisting Index")
-				err := db.Batch(func(tx *bolt.Tx) error {
-					for bucket, index := range ftsIdx {
-						ftsIdx[bucket] = &map[string][]string{}
-						if err := PersistTempFTSIndex(tx.Bucket([]byte(bucket)), index); err != nil {
-							return err
-						}
-					}
-					return nil
-				})
-				if err != nil {
-					log.Print(err)
+				if t == nil {
+					t = time.AfterFunc(1*time.Second, func() {
+						index(db, ftsIdx)
+						t = nil
+					})
 				}
 			}
 		}
 	}()
 
 	return requests
+}
+
+func index(db *bolt.DB, ftsIdx map[string]*map[string][]string) {
+	log.Print("Putting index")
+	err := db.Batch(func(tx *bolt.Tx) error {
+		for bucket, index := range ftsIdx {
+			ftsIdx[bucket] = &map[string][]string{}
+			if err := PersistTempFTSIndex(tx.Bucket([]byte(bucket)), index); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		log.Print(err)
+	}
 }
 
 func appendTempIndex(db *bolt.DB, request *IndexRequest, ftsIdx *map[string][]string) error {

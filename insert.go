@@ -3,6 +3,7 @@ package searchbolt
 import (
 	"encoding/hex"
 	"encoding/json"
+	"github.com/fr0stylo/searchbolt/database"
 	"reflect"
 
 	bolt "go.etcd.io/bbolt"
@@ -32,7 +33,7 @@ func Insert(db *bolt.DB, bucket string, id any, data any) (resId string, err err
 		key = idsBucket.Get(idBytes)
 		if key == nil {
 			id, _ := dataBucket.NextSequence()
-			k := UintKey(id)
+			k := database.UintKey(id)
 			key = k[:]
 			err := idsBucket.Put(idBytes, key)
 			if err != nil {
@@ -55,7 +56,7 @@ func insert(idsBucket *bolt.Bucket, dataBucket *bolt.Bucket, originalid []byte, 
 	key = idsBucket.Get(originalid)
 	if key == nil {
 		id, _ := dataBucket.NextSequence()
-		k := UintKey(id)
+		k := database.UintKey(id)
 		key = k[:]
 		err := idsBucket.Put(originalid, key)
 		if err != nil {
@@ -178,5 +179,26 @@ func UpsertBatch(db *bolt.DB, indexer chan *IndexRequest, bucketName string, ite
 		resIds = append(resIds, hex.EncodeToString(id))
 	}
 
+	return
+}
+
+func UpsertObjectBatch(db *database.Database, indexer chan *IndexRequest, bucketName string, items []BatchEntry) (resIds []string, err error) {
+	var entries []database.BatchEntry
+	for _, v := range items {
+		idBytes, dataBytes, err := prepareData(v.Id, v.Data)
+		if err != nil {
+			return nil, err
+		}
+		entries = append(entries, database.BatchEntry{
+			Id:   idBytes,
+			Data: dataBytes,
+		})
+	}
+	insertedIds := db.UpsertObjects(entries)
+
+	for _, id := range insertedIds {
+		indexer <- &IndexRequest{Bucket: bucketName, ObjectId: id}
+		resIds = append(resIds, hex.EncodeToString(id))
+	}
 	return
 }

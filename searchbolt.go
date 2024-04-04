@@ -3,6 +3,7 @@ package searchbolt
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/fr0stylo/searchbolt/database"
 	bolt "go.etcd.io/bbolt"
 	"io"
 )
@@ -65,6 +66,7 @@ type Queryer interface {
 
 type Writter interface {
 	UpsertBatch(bucketName string, items []BatchEntry) (resIds []string, err error)
+	UpsertObjectBatch(bucket string, items []BatchEntry) (resIds []string, err error)
 }
 
 type Indexer interface {
@@ -114,6 +116,11 @@ func (b *SearchBolt) GetMappings(bucket string) ([]string, map[string]string, er
 
 func (b *SearchBolt) CreateMappings(bucket string, filters map[string]string, search []string) error {
 	return CreateMappings(b.db, bucket, filters, search)
+}
+
+func (b *SearchBolt) UpsertObjectBatch(bucket string, items []BatchEntry) (resIds []string, err error) {
+	db := database.NewDatabase(b.db, bucket)
+	return UpsertObjectBatch(db, b.indexerC, bucket, items)
 }
 
 func NewSearchBolt(path string) (*SearchBolt, error) {

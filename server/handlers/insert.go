@@ -81,7 +81,7 @@ func InsertBatch(writter searchbolt.Writter) http.HandlerFunc {
 			return
 		}
 
-		id, err := writter.UpsertBatch(body.Bucket, body.Data)
+		id, err := writter.UpsertObjectBatch(body.Bucket, body.Data)
 		if err != nil {
 			r.JSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
 			return

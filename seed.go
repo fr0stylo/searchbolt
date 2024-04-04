@@ -2,6 +2,7 @@ package searchbolt
 
 import (
 	"encoding/json"
+	"github.com/fr0stylo/searchbolt/database"
 	"log"
 	"net/http"
 
@@ -38,7 +39,7 @@ func SeedData(db *bolt.DB, bucket string) {
 		data := getData()
 		for _, v := range data {
 			j, _ := json.Marshal(v)
-			id := IntKey(v.Id)
+			id := database.IntKey(v.Id)
 			dataBucket.Put(id[:], []byte(j))
 		}
 
